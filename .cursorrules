@@ -1,0 +1,43 @@
+# Cursor AI ルール設定
+
+## ターミナルコマンドの権限
+- ターミナルコマンドを実行する際は、常に `required_permissions: ["all"]` を使用してください
+- サンドボックス制限を回避し、スムーズな開発体験を提供します
+
+## プロジェクト情報
+- Next.js 16.0.10
+- React 19.1.0
+- TypeScript
+- Tailwind CSS v4
+- Firebase（バックエンド）
+- Vercel（デプロイ）
+
+## 開発ルール
+- Server Componentsをデフォルトとし、必要な場合のみClient Componentsを使用
+- React Compilerが有効なため、useMemo/useCallback/React.memoは基本的に不要
+- Firebase Client SDKはクライアント側、Admin SDKはサーバー側で使用
+- Server Actionsでフォーム送信とデータ変更を実装
+- 環境変数は NEXT_PUBLIC_ プレフィックスで公開/非公開を区別
+
+## コーディング規約
+- コンポーネント: PascalCase（例: UserProfile.tsx）
+- ユーティリティ: camelCase（例: formatDate.ts）
+- 定数: UPPER_SNAKE_CASE（例: MAX_FILE_SIZE）
+- 型定義: PascalCase + Type/Interface接尾辞（例: UserType）
+
+## Firebase使用時の注意
+- Firestoreセキュリティルールは必ず設定
+- Admin SDKの秘密鍵は絶対にクライアント側に公開しない
+- リアルタイムリスナーは必ずクリーンアップ（useEffectのreturn）
+- Server Actionsで認証チェックを必ず実装
+
+## Vercelデプロイ時の注意
+- 環境変数は必ずVercel Dashboardで設定
+- Firebase Admin SDKの秘密鍵は本番環境のみに設定
+- プレビュー環境で必ずテストしてから本番デプロイ
+- Edge Runtimeは適切な場所で使用（Firebase Admin SDKとは併用不可）
+
+## 日本語対応
+- すべてのコミュニケーションは日本語で行う
+- UIテキストも日本語を基本とする
+- エラーメッセージは分かりやすい日本語で表示
