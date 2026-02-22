@@ -1,84 +1,199 @@
-# DefaultSettingWebApp
+# UKPLUS Admin - 管理者・教師用Webアプリケーション
 
-**Firebase + Vercel** で構築するWebアプリケーション開発用テンプレートです。
+UKPLUS Osakaの管理者・教師向け予約・学習管理システムです。
 
-## 概要
+## 📋 概要
 
-このプロジェクトは、モダンなWebアプリケーション開発を効率化するための初期設定環境です。
-Firebase（認証・データベース・ストレージ）とVercel（ホスティング）を組み合わせた、フルスタックWebアプリを素早く立ち上げられます。
+このWebアプリケーションは、UKPLUS OsakaのiOSアプリ（ukplus）と連携し、管理者と教師がプライベートレッスンの予約管理、生徒管理、授業管理、お知らせ配信などを行うためのシステムです。
 
-## 技術スタック
+## 🚀 技術スタック
 
 - **Next.js 16** - React フレームワーク（App Router）
 - **React 19** - UI ライブラリ
 - **TypeScript** - 型安全性
 - **Tailwind CSS v4** - スタイリング
-- **shadcn/ui** - コンポーネントライブラリ
-- **Firebase** - バックエンド（Auth, Firestore, Storage, Functions）
-- **Vercel** - ホスティング・デプロイ
+- **Firebase** - バックエンド（Auth, Firestore, Storage）
+- **Vercel** - ホスティング
 
-## 使用開始手順
+## ✨ 主な機能
 
-### 1. プロジェクトのセットアップ
+### 管理者機能
+- ✅ **ダッシュボード** - 予約状況や統計の一覧表示
+- ✅ **予約カレンダー** - Googleカレンダー風の週表示インターフェース
+- ✅ **生徒管理** - 生徒情報と受講状況の管理
+- ✅ **教師管理** - 教師プロフィールと稼働状況の管理
+- ✅ **授業管理** - クラスとセッションの作成・編集
+- ✅ **お知らせ配信** - 生徒・教師へのお知らせ作成
+- ✅ **受講管理** - 回数券・有効期限の管理
+- ✅ **設定** - システム全体の設定
+
+### 教師機能
+- ✅ **予約カレンダー** - 自分の予約スケジュールの確認
+- ✅ **空き枠管理** - プライベートレッスン枠の開放/クローズ
+- ✅ **授業管理** - 担当セッションの確認
+- 🔄 **サマリー作成** - レッスンサマリーの作成・編集（予定）
+- 🔄 **語彙リスト** - 語彙リストの作成（予定）
+- 🔄 **宿題管理** - 宿題の登録・管理（予定）
+
+## 📂 プロジェクト構造
+
+```
+ukplusad/
+├── app/                      # Next.js App Router
+│   ├── admin/               # 管理者画面
+│   │   ├── page.tsx        # ダッシュボード
+│   │   ├── calendar/       # 予約カレンダー
+│   │   ├── students/       # 生徒管理
+│   │   ├── teachers/       # 教師管理
+│   │   ├── sessions/       # 授業管理
+│   │   ├── announcements/  # お知らせ管理
+│   │   ├── enrollments/    # 受講管理
+│   │   └── settings/       # 設定
+│   ├── teacher/            # 教師画面（予定）
+│   ├── auth/               # 認証関連
+│   │   └── login/          # ログインページ
+│   └── layout.tsx          # ルートレイアウト
+├── lib/
+│   ├── firebase/           # Firebase設定
+│   │   ├── client.ts      # Client SDK
+│   │   └── admin.ts       # Admin SDK
+│   ├── hooks/              # Reactフック
+│   │   └── useAuth.tsx    # 認証フック
+│   ├── components/         # 共通コンポーネント
+│   │   ├── ProtectedRoute.tsx
+│   │   └── AdminLayout.tsx
+│   ├── types/              # TypeScript型定義
+│   │   └── index.ts       # すべての型定義
+│   ├── auth.ts            # 認証ヘルパー関数
+│   └── utils.ts           # ユーティリティ関数
+├── .env.local              # 環境変数（Gitにコミットしない）
+├── .env.local.example      # 環境変数テンプレート
+└── FIREBASE_SETUP.md       # Firebaseセットアップガイド
+```
+
+## 🔧 セットアップ手順
+
+### 1. リポジトリのクローン
 
 ```bash
-# リポジトリのクローン
-git clone <your-repo-url>
-cd <your-project-name>
+cd /Users/huwasi/Documents/plus/ukplusad
+```
 
-# 依存関係のインストール
+### 2. 依存関係のインストール
+
+```bash
 npm install
+```
 
-# 開発サーバー起動
+### 3. Firebaseプロジェクトの設定
+
+詳細は [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) を参照してください。
+
+#### 簡易手順:
+
+1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成
+2. Webアプリを追加
+3. Authentication、Firestore Database、Storageを有効化
+4. サービスアカウントキーを生成
+
+### 4. 環境変数の設定
+
+`.env.local` ファイルがすでに作成されています：
+
+```bash
+# Firebase Client SDK（すでに設定済み）
+NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyBHnIlw-OxnfXKRKRiLtMCZHidcMclywSI"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="ukplus-9e119.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="ukplus-9e119"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="ukplus-9e119.firebasestorage.app"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="382684713650"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:382684713650:web:5a9383d7c897737a492fab"
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="G-PQJXG8PT4G"
+
+# Firebase Admin SDK（要設定）
+FIREBASE_PROJECT_ID="ukplus-9e119"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@ukplus-9e119.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour_Private_Key_Here\n-----END PRIVATE KEY-----\n"
+```
+
+**重要**: `FIREBASE_CLIENT_EMAIL` と `FIREBASE_PRIVATE_KEY` をFirebase Consoleから取得した値に置き換えてください。
+
+### 5. 開発サーバーの起動
+
+```bash
 npm run dev
 ```
 
-ブラウザで [http://localhost:3000](http://localhost:3000) を開いて確認してください。
+ブラウザで [http://localhost:3000](http://localhost:3000) を開いてください。
 
-### 2. Firebaseプロジェクトの作成
+## 🔐 認証とロール
 
-1. [Firebase Console](https://console.firebase.google.com/) にアクセス
-2. 新しいプロジェクトを作成
-3. Webアプリを追加（⚙️ > プロジェクトの設定 > アプリを追加）
-4. Firebase設定情報を取得
+### ロール一覧
 
-### 3. 環境変数の設定
+- **admin** - 管理者（すべての機能にアクセス可能）
+- **teacher** - 教師（予約カレンダー、空き枠管理、授業管理）
+- **student** - 生徒（iOSアプリのみ）
 
-`.env.local` ファイルを作成:
+### 初回ログイン用アカウントの作成
 
-```bash
-# Firebase Client SDK（クライアント側で使用）
-NEXT_PUBLIC_FIREBASE_API_KEY="your-api-key"
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
-NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your-project.appspot.com"
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="your-sender-id"
-NEXT_PUBLIC_FIREBASE_APP_ID="your-app-id"
+Firebase Consoleで管理者アカウントを作成し、カスタムクレームを設定する必要があります：
 
-# Firebase Admin SDK（サーバー側で使用）
-FIREBASE_PROJECT_ID="your-project-id"
-FIREBASE_CLIENT_EMAIL="your-service-account@your-project.iam.gserviceaccount.com"
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```javascript
+// Firebase Admin SDKで実行
+admin.auth().setCustomUserClaims(uid, { role: 'admin' });
 ```
 
-### 4. Firebaseサービスの有効化
+または、Firestoreの `users` コレクションに以下のドキュメントを作成：
 
-Firebase Consoleで以下を有効化:
-
-```bash
-# Authentication
-- メール/パスワード認証
-- Google認証（オプション）
-- GitHub認証（オプション）
-
-# Firestore Database
-- テストモードで開始（後でセキュリティルールを設定）
-
-# Storage
-- デフォルト設定で開始
+```json
+{
+  "role": "admin",
+  "displayName": "管理者名",
+  "email": "admin@ukplus-osaka.jp",
+  "createdAt": "2026-02-22T00:00:00Z",
+  "updatedAt": "2026-02-22T00:00:00Z"
+}
 ```
 
-### 5. Vercelへのデプロイ
+## 📊 データモデル
+
+### 主要なコレクション
+
+- **users** - ユーザー情報（student, teacher, admin）
+- **teacherProfiles** - 教師プロフィール
+- **classes** - クラス情報
+- **sessions** - 授業セッション
+- **privateSlots** - プライベートレッスン空き枠
+- **privateBookings** - プライベートレッスン予約
+- **enrollments** - 受講管理（回数券・有効期限）
+- **announcements** - お知らせ
+- **lessonSummaries** - レッスンサマリー
+- **vocabularyLists** - 語彙リスト
+- **homework** - 宿題
+- **threads** - メッセージスレッド
+
+詳細なデータモデルは `lib/types/index.ts` を参照してください。
+
+## 🎨 UIコンポーネント
+
+### カレンダーコンポーネント
+
+Googleカレンダー風の週表示カレンダーを実装：
+
+- 週単位での表示（月曜始まり）
+- 時間軸表示（9:00〜21:00）
+- スロットのステータス表示（空き/予約済み/クローズ）
+- 教師別フィルタリング
+- レスポンシブデザイン
+
+### レイアウトコンポーネント
+
+- **AdminLayout** - サイドバーナビゲーション付きの管理画面レイアウト
+- **ProtectedRoute** - ロールベースのアクセス制御
+
+## 🚀 デプロイ
+
+### Vercelへのデプロイ
 
 ```bash
 # Vercel CLIのインストール
@@ -91,302 +206,87 @@ vercel
 vercel --prod
 ```
 
-または、GitHubリポジトリをVercelに接続して自動デプロイ:
-1. [Vercel Dashboard](https://vercel.com/dashboard) にアクセス
-2. "Import Project" をクリック
-3. GitHubリポジトリを選択
-4. 環境変数を設定
-5. デプロイ
+### 環境変数の設定
 
-## 主な機能
+Vercel Dashboardで以下の環境変数を設定：
 
-- ✅ **Firebase Authentication**: メール/パスワード、OAuth認証
-- ✅ **Firestore Database**: リアルタイムデータベース
-- ✅ **Firebase Storage**: 画像・ファイルアップロード
-- ✅ **Server Actions**: フォーム送信やデータ操作
-- ✅ **API Routes**: カスタムAPIエンドポイント
-- ✅ **レスポンシブ対応**: モバイルファースト設計
-- ✅ **型安全性**: TypeScript完全対応
-- ✅ **高速ビルド**: Turbopack対応
+- `NEXT_PUBLIC_FIREBASE_*` - すべてのクライアント側環境変数
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
 
-## ディレクトリ構成
+## 📝 開発ガイドライン
+
+### コーディング規約
+
+- **TypeScript** - 型安全性を重視
+- **Server Actions** - データ操作はServer Actionsを使用
+- **Client Components** - インタラクティブなUIは'use client'で実装
+- **Firestore** - リアルタイムデータはFirestoreのリスナーを使用
+
+### ディレクトリ規約
 
 ```
-DefaultSettingWebApp/
-├── app/
-│   ├── (auth)/              # 認証関連ページ（ログイン・登録）
-│   ├── (dashboard)/         # ダッシュボード（認証後）
-│   ├── api/                 # API Routes
-│   ├── actions/             # Server Actions
-│   ├── components/          # UIコンポーネント
-│   ├── globals.css
-│   ├── layout.tsx
-│   └── page.tsx
-├── lib/
-│   ├── firebase/            # Firebase設定
-│   │   ├── client.ts       # Client SDK
-│   │   └── admin.ts        # Admin SDK
-│   └── utils.ts
-├── public/                  # 静的ファイル
-├── memories/                # 開発ワークフロー・ベストプラクティス
-├── .env.local              # 環境変数（Gitにコミットしない）
-└── .env.example            # 環境変数のテンプレート
+- app/            → ページとルーティング
+- lib/            → ビジネスロジックとユーティリティ
+- lib/components/ → 再利用可能なコンポーネント
+- lib/types/      → TypeScript型定義
+- lib/firebase/   → Firebase設定
 ```
 
-## Firebaseパッケージのインストール
+## 🔄 今後の実装予定
+
+- [ ] 教師用ダッシュボード
+- [ ] レッスンサマリー作成機能
+- [ ] 語彙リスト作成機能
+- [ ] 宿題管理機能
+- [ ] メッセージング機能
+- [ ] 代行予約機能
+- [ ] 予約確認メール送信
+- [ ] プッシュ通知機能
+- [ ] レポート・分析機能
+
+## 🐛 トラブルシューティング
+
+### Firebase接続エラー
+
+```
+Error: Firebase Admin SDK initialization failed
+```
+
+→ `.env.local` の `FIREBASE_PRIVATE_KEY` が正しく設定されているか確認してください。改行(`\n`)が含まれている必要があります。
+
+### 認証エラー
+
+```
+Error: User does not have admin role
+```
+
+→ Firebase ConsoleでユーザーにカスタムクレームまたはFirestoreの `users` コレクションでロールが設定されているか確認してください。
+
+### 開発サーバーが起動しない
 
 ```bash
-# Firebase SDK
-npm install firebase firebase-admin
-
-# 認証管理（オプション: NextAuth + Firebase）
-npm install next-auth@beta @auth/firebase-adapter
-
-# フォームバリデーション
-npm install react-hook-form zod @hookform/resolvers
-
-# UIコンポーネント
-npx simple-shadcn-cli add button input form card dialog toast
+# node_modulesを削除して再インストール
+rm -rf node_modules package-lock.json
+npm install
+npm run dev
 ```
 
-## 開発ガイドライン
+## 📚 参考リンク
 
-### Firebase Client SDK（クライアント側）
-
-```typescript
-// lib/firebase/client.ts
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-```
-
-### Firebase Admin SDK（サーバー側）
-
-```typescript
-// lib/firebase/admin.ts
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
-
-if (getApps().length === 0) {
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
-
-export const adminAuth = getAuth();
-export const adminDb = getFirestore();
-```
-
-### Server Actionsでのデータ操作
-
-```typescript
-// app/actions/todo.actions.ts
-'use server';
-
-import { adminDb } from '@/lib/firebase/admin';
-import { revalidatePath } from 'next/cache';
-
-export async function createTodo(formData: FormData) {
-  const title = formData.get('title') as string;
-  
-  await adminDb.collection('todos').add({
-    title,
-    completed: false,
-    createdAt: new Date(),
-  });
-  
-  revalidatePath('/dashboard');
-  return { success: true };
-}
-```
-
-### クライアントでのリアルタイムデータ取得
-
-```typescript
-'use client';
-
-import { useEffect, useState } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client';
-
-export function TodoList() {
-  const [todos, setTodos] = useState([]);
-  
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, 'todos'),
-      (snapshot) => {
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setTodos(data);
-      }
-    );
-    
-    return () => unsubscribe();
-  }, []);
-  
-  return (
-    <ul>
-      {todos.map(todo => (
-        <li key={todo.id}>{todo.title}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
-## Firestoreセキュリティルール
-
-```javascript
-// firestore.rules
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // ユーザーは自分のドキュメントのみアクセス可能
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // 認証済みユーザーはtodosを読み書き可能
-    match /todos/{todoId} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
-
-## Storageセキュリティルール
-
-```javascript
-// storage.rules
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    // ユーザーは自分のフォルダのみアクセス可能
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
-
-## Vercelでの環境変数設定
-
-Vercel Dashboardで以下の環境変数を設定:
-
-```bash
-# Firebase Client SDK
-NEXT_PUBLIC_FIREBASE_API_KEY
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-NEXT_PUBLIC_FIREBASE_PROJECT_ID
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-NEXT_PUBLIC_FIREBASE_APP_ID
-
-# Firebase Admin SDK
-FIREBASE_PROJECT_ID
-FIREBASE_CLIENT_EMAIL
-FIREBASE_PRIVATE_KEY  # 改行を含む長い文字列
-```
-
-## Next.js 16の新機能
-
-### React Compiler（自動最適化）
-
-Next.js 16ではReact Compilerがデフォルトで有効化されています。
-`useMemo`、`useCallback`、`React.memo`の手動最適化が不要になりました。
-
-```typescript
-// ❌ 以前（手動最適化）
-const memoizedValue = useMemo(() => computeExpensiveValue(a, b), [a, b]);
-const memoizedCallback = useCallback(() => doSomething(a, b), [a, b]);
-
-// ✅ Next.js 16（自動最適化）
-const value = computeExpensiveValue(a, b);
-const callback = () => doSomething(a, b);
-```
-
-### Turbopack（高速ビルド）
-
-デフォルトで有効化されています。開発サーバーの起動とHMRが大幅に高速化。
-
-### Server Actions（安定版）
-
-フォーム送信やデータ変更がより簡単に:
-
-```typescript
-// app/actions/user.actions.ts
-'use server';
-
-export async function updateProfile(formData: FormData) {
-  const name = formData.get('name');
-  // Firebase Admin SDKでデータ更新
-  await adminDb.collection('users').doc(userId).update({ name });
-  revalidatePath('/profile');
-}
-```
-
-## スクリプト
-
-```bash
-npm run dev      # 開発サーバー起動（Turbopack）
-npm run build    # プロダクションビルド
-npm run start    # プロダクションサーバー起動
-npm run lint     # ESLint実行
-```
-
-## トラブルシューティング
-
-### Firebase Admin SDKのエラー
-
-```bash
-Error: Error while making request: getaddrinfo ENOTFOUND firestore.googleapis.com
-```
-
-→ サーバー側でFirebase Admin SDKを使用する際は、Vercelの環境変数が正しく設定されているか確認
-
-### 環境変数が読み込まれない
-
-→ `.env.local`ファイルが正しい場所にあるか確認。サーバーを再起動。
-
-### Firestoreのアクセス拒否
-
-→ Firestoreのセキュリティルールを確認。開発中は一時的にテストモードを使用。
-
-## 参考リンク
-
-- [Next.js 16 Documentation](https://nextjs.org/docs)
+- [Next.js Documentation](https://nextjs.org/docs)
 - [Firebase Documentation](https://firebase.google.com/docs)
-- [Vercel Documentation](https://vercel.com/docs)
-- [shadcn/ui](https://ui.shadcn.com/)
+- [Tailwind CSS v4](https://tailwindcss.com/docs)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
 
-## ライセンス
+## 📄 ライセンス
 
-MIT License
+このプロジェクトはUKPLUS Osaka専用です。
 
 ---
 
-**注意**: このテンプレートを使用する際は、必ず新しいFirebaseプロジェクトを作成し、環境変数を適切に設定してください。
+**開発者向けメモ**:
+- Firebase Admin SDKの秘密鍵は絶対にGitにコミットしないこと
+- 本番環境ではFirestoreセキュリティルールを必ず設定すること
+- 定期的にFirebase使用量を確認すること

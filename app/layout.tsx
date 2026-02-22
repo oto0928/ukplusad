@@ -2,10 +2,11 @@ import "../lib/fonts/_active.css";
 import "../lib/fonts/_vars.css";
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/lib/hooks/useAuth";
 
 export const metadata: Metadata = {
-  title: "DefaultSettingWebApp - Webアプリ開発テンプレート",
-  description: "Next.js 15 + TypeScript + Tailwind CSS v4 で構築されたモダンなWebアプリケーション開発テンプレート",
+  title: "UKPLUS Admin - 管理者・教師用システム",
+  description: "UKPLUS Osakaの管理者・教師向け予約・学習管理システム",
 };
 
 export default function RootLayout({
@@ -18,10 +19,8 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body
-        className="antialiased font-body"
-      >
-        {children}
+      <body className="antialiased font-body">
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

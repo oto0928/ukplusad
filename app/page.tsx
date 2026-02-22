@@ -1,36 +1,30 @@
 import Link from "next/link";
+import { redirect } from 'next/navigation';
 
 export default function Home() {
+  // トップページから直接ログインページにリダイレクト
+  redirect('/auth/login');
+  
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
       <main className="max-w-4xl mx-auto px-4 py-16 text-center">
         <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-          Webアプリ開発を
+          UKPLUS Admin
           <br />
-          <span className="text-blue-600">今すぐ始めよう</span>
+          <span className="text-blue-600">管理者・教師用システム</span>
         </h1>
         
         <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
-          Next.js 15 + TypeScript + Tailwind CSS v4 で構築された
-          <br />
-          モダンなWebアプリケーション開発テンプレート
+          予約管理・授業管理・生徒管理システム
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
           <Link
-            href="/api"
+            href="/auth/login"
             className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
           >
-            API Routes を見る
+            ログイン
           </Link>
-          <a
-            href="https://github.com/yourusername/your-repo"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center px-8 py-4 text-lg font-medium text-gray-700 bg-white hover:bg-gray-50 border-2 border-gray-300 rounded-lg transition-colors"
-          >
-            GitHub で見る
-          </a>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
