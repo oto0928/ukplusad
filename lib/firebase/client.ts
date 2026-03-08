@@ -17,8 +17,8 @@ const firebaseConfig = {
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
-let db: Firestore | undefined;
-let storage: FirebaseStorage | undefined;
+let _db: Firestore | undefined;
+let _storage: FirebaseStorage | undefined;
 let analytics: Analytics | null = null;
 
 const hasValidConfig = 
@@ -29,13 +29,16 @@ const hasValidConfig =
 if (typeof window !== 'undefined' && hasValidConfig) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
+  _db = getFirestore(app);
+  _storage = getStorage(app);
   
   if (process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) {
     analytics = getAnalytics(app);
   }
 }
+
+const db = _db as Firestore;
+const storage = _storage as FirebaseStorage;
 
 /**
  * セカンダリFirebaseアプリでユーザーを作成する。

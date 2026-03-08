@@ -4,9 +4,9 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage, Storage } from 'firebase-admin/storage';
 
 let adminApp: App | undefined;
-let adminAuth: Auth | undefined;
-let adminDb: Firestore | undefined;
-let adminStorage: Storage | undefined;
+let _adminAuth: Auth | undefined;
+let _adminDb: Firestore | undefined;
+let _adminStorage: Storage | undefined;
 
 const hasValidConfig = 
   process.env.FIREBASE_PROJECT_ID && 
@@ -28,9 +28,13 @@ if (hasValidConfig) {
     adminApp = getApps()[0];
   }
 
-  adminAuth = getAuth(adminApp);
-  adminDb = getFirestore(adminApp);
-  adminStorage = getStorage(adminApp);
+  _adminAuth = getAuth(adminApp);
+  _adminDb = getFirestore(adminApp);
+  _adminStorage = getStorage(adminApp);
 }
+
+const adminAuth = _adminAuth as Auth;
+const adminDb = _adminDb as Firestore;
+const adminStorage = _adminStorage as Storage;
 
 export { adminApp, adminAuth, adminDb, adminStorage };
