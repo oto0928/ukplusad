@@ -27,19 +27,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
         try {
-          // IDトークンを取得してセッションクッキーを作成
           const idToken = await firebaseUser.getIdToken();
           await createSession(idToken);
 
-          // Firestoreからロール情報を取得
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          const userData = userDoc.data();
-          setRole((userData?.role as UserRole) || null);
+          if (db) {
+            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+            const userData = userDoc.data();
+            setRole((userData?.role as UserRole) || null);
+          }
         } catch (error) {
           console.error('Error setting up session:', error);
           setRole(null);
@@ -57,8 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await auth.signOut();
+      if (auth) {
+        await auth.signOut();
+      }
       await destroySession();
+      setUser(null);
       setRole(null);
     } catch (error) {
       console.error('Error signing out:', error);

@@ -16,6 +16,10 @@ export interface AuthUser {
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
+    if (!adminAuth || !adminDb) {
+      return null;
+    }
+
     const cookieStore = await cookies();
     const session = cookieStore.get('session')?.value;
 
@@ -25,7 +29,6 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
     const decodedClaims = await adminAuth.verifySessionCookie(session, true);
     
-    // Firestoreからユーザー情報を取得
     const userDoc = await adminDb.collection('users').doc(decodedClaims.uid).get();
     const userData = userDoc.data();
 
@@ -69,6 +72,11 @@ export async function isTeacherOrAdmin(): Promise<boolean> {
  */
 export async function createSession(idToken: string) {
   try {
+    if (!adminAuth) {
+      console.warn('Admin Auth is not configured. Skipping session cookie creation.');
+      return { success: true };
+    }
+
     const expiresIn = 60 * 60 * 24 * 14 * 1000; // 14 days
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
     
@@ -103,13 +111,35 @@ export async function destroySession() {
 }
 
 /**
+ * Firebase Authからユーザーを削除
+ */
+export async function deleteAuthUser(uid: string) {
+  try {
+    if (!adminAuth) {
+      console.warn('Admin Auth is not configured. Cannot delete auth user.');
+      return { success: false, error: 'Admin SDKが設定されていません' };
+    }
+
+    await adminAuth.deleteUser(uid);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting auth user:', error);
+    return { success: false, error: 'ユーザーの削除に失敗しました' };
+  }
+}
+
+/**
  * ユーザーのカスタムクレームを設定
  */
 export async function setUserRole(uid: string, role: UserRole) {
   try {
+    if (!adminAuth || !adminDb) {
+      console.warn('Admin SDK is not configured. Skipping custom claims.');
+      return { success: false, error: 'Admin SDKが設定されていません' };
+    }
+
     await adminAuth.setCustomUserClaims(uid, { role });
     
-    // Firestoreにも保存
     await adminDb.collection('users').doc(uid).set(
       { role, updatedAt: new Date() },
       { merge: true }

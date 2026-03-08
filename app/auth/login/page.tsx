@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function LoginPage() {
@@ -14,7 +15,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { role } = useAuth();
 
-  // すでにログイン済みの場合はリダイレクト
   if (role === 'admin') {
     router.push('/admin');
     return null;
@@ -29,40 +29,44 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    if (!auth || !db) {
+      setError('Firebaseの接続設定が正しくありません。');
+      setLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // IDトークンを取得してカスタムクレームをチェック
-      const idTokenResult = await user.getIdTokenResult();
-      const userRole = idTokenResult.claims.role as string | undefined;
+      // Firestoreからロール情報を取得
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.data();
+      const userRole = userData?.role as string | undefined;
 
-      // 管理者または教師のみログイン可能
       if (userRole === 'admin') {
         router.push('/admin');
       } else if (userRole === 'teacher') {
         router.push('/teacher');
       } else {
-        setError('このアカウントは管理者または教師としてログインできません。');
+        setError('このアカウントは管理者または教師として登録されていません。');
         await auth.signOut();
       }
     } catch (err: unknown) {
       console.error('Login error:', err);
-      if (err instanceof Error) {
-        if ('code' in err) {
-          const firebaseError = err as { code: string };
-          if (firebaseError.code === 'auth/invalid-credential') {
-            setError('メールアドレスまたはパスワードが正しくありません。');
-          } else if (firebaseError.code === 'auth/user-not-found') {
-            setError('ユーザーが見つかりません。');
-          } else if (firebaseError.code === 'auth/wrong-password') {
-            setError('パスワードが正しくありません。');
-          } else {
-            setError('ログインに失敗しました。もう一度お試しください。');
-          }
+      if (err instanceof Error && 'code' in err) {
+        const firebaseError = err as { code: string };
+        if (firebaseError.code === 'auth/invalid-credential') {
+          setError('メールアドレスまたはパスワードが正しくありません。');
+        } else if (firebaseError.code === 'auth/user-not-found') {
+          setError('ユーザーが見つかりません。');
+        } else if (firebaseError.code === 'auth/wrong-password') {
+          setError('パスワードが正しくありません。');
         } else {
           setError('ログインに失敗しました。もう一度お試しください。');
         }
+      } else {
+        setError('ログインに失敗しました。もう一度お試しください。');
       }
     } finally {
       setLoading(false);
@@ -71,7 +75,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-none border border-gray-200">
         <div>
           <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
             UKPLUS Admin
@@ -94,8 +98,8 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="email@example.com"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]"
+                placeholder="例：xxxx@gmail.com"
               />
             </div>
             <div>
@@ -110,8 +114,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="••••••••"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]"
               />
             </div>
           </div>
@@ -122,15 +125,13 @@ export default function LoginPage() {
             </div>
           )}
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'ログイン中...' : 'ログイン'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 px-4 text-sm font-medium rounded-[6px] text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors min-h-[44px]"
+          >
+            {loading ? 'ログイン中...' : 'ログイン'}
+          </button>
         </form>
       </div>
     </div>

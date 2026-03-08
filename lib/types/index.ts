@@ -12,6 +12,7 @@ export interface AppUser {
   displayName: string;
   email: string;
   photoURL?: string | null;
+  assignedTeacherIds?: string[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
   notificationPrefs?: {
@@ -99,6 +100,7 @@ export type SlotSource = 'system_generated' | 'teacher_managed' | 'admin_managed
 export interface PrivateSlot {
   id: string;
   teacherId: string;
+  title?: string | null;
   startAt: Timestamp;
   endAt: Timestamp;
   status: SlotStatus;
@@ -148,6 +150,7 @@ export interface PrivateBooking {
   rescheduleRequestedAt?: Timestamp | null;
   cancelledAt?: Timestamp | null;
   cancellationReason?: string | null;
+  zoomURL?: string | null;
   consumption: BookingConsumption;
   policySnapshot: PolicySnapshot;
   createdAt: Timestamp;
@@ -214,17 +217,22 @@ export interface AppSettings {
 
 export type AnnouncementImportance = 'normal' | 'important' | 'urgent';
 
+export type AnnouncementTarget = 'all' | 'roles' | 'individual';
+
 export interface Announcement {
   id: string;
   title: string;
   body: string;
   pinned: boolean;
   importance: AnnouncementImportance;
+  target: AnnouncementTarget;
   audienceRoles: UserRole[];
+  targetStudentIds: string[];
   startsAt?: Timestamp | null;
   endsAt?: Timestamp | null;
   createdBy: string;
   createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 // ===========================
@@ -296,6 +304,8 @@ export interface Message {
   senderId: string;
   text: string;
   attachmentPath?: string | null;
+  relatedBookingId?: string | null;
+  relatedSlotId?: string | null;
   createdAt: Timestamp;
   readBy: string[]; // uids
 }
@@ -340,9 +350,12 @@ export function calculateRescheduleAllowed(registeredCount: number): number {
 }
 
 export function getWeekKey(date: Date): string {
-  // Get Monday of the week
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(date.setDate(diff));
-  return monday.toISOString().split('T')[0]; // YYYY-MM-DD
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${dd}`;
 }

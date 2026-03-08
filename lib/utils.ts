@@ -20,7 +20,10 @@ export function toDate(timestamp: any): Date {
  */
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toISOString().split('T')[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -106,4 +109,74 @@ export function formatDuration(minutes: number): string {
   if (hours === 0) return `${mins}分`;
   if (mins === 0) return `${hours}時間`;
   return `${hours}時間${mins}分`;
+}
+
+/**
+ * 重なるスロットのカラムレイアウトを計算
+ * 各スロットに columnIndex (何列目) と totalColumns (全体の列数) を割り当て
+ */
+export interface SlotLayout {
+  id: string;
+  columnIndex: number;
+  totalColumns: number;
+}
+
+export function calculateOverlapLayout(
+  items: { id: string; startMinutes: number; endMinutes: number }[]
+): Record<string, SlotLayout> {
+  if (items.length === 0) return {};
+
+  const sorted = [...items].sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
+
+  const groups: (typeof items)[] = [];
+  let currentGroup = [sorted[0]];
+  let groupEnd = sorted[0].endMinutes;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const item = sorted[i];
+    if (item.startMinutes < groupEnd) {
+      currentGroup.push(item);
+      groupEnd = Math.max(groupEnd, item.endMinutes);
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [item];
+      groupEnd = item.endMinutes;
+    }
+  }
+  groups.push(currentGroup);
+
+  const result: Record<string, SlotLayout> = {};
+
+  for (const group of groups) {
+    if (group.length === 1) {
+      result[group[0].id] = { id: group[0].id, columnIndex: 0, totalColumns: 1 };
+      continue;
+    }
+
+    const columns: number[] = [];
+    const assignments: { item: typeof group[0]; col: number }[] = [];
+
+    for (const item of group) {
+      let placed = false;
+      for (let col = 0; col < columns.length; col++) {
+        if (item.startMinutes >= columns[col]) {
+          columns[col] = item.endMinutes;
+          assignments.push({ item, col });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        assignments.push({ item, col: columns.length });
+        columns.push(item.endMinutes);
+      }
+    }
+
+    const totalCols = columns.length;
+    for (const { item, col } of assignments) {
+      result[item.id] = { id: item.id, columnIndex: col, totalColumns: totalCols };
+    }
+  }
+
+  return result;
 }

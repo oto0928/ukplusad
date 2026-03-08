@@ -1,8 +1,9 @@
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { initializeApp, getApps, FirebaseApp, deleteApp } from 'firebase/app';
+import { getAuth, Auth, createUserWithEmailAndPassword, updateProfile, signOut as firebaseSignOut } from 'firebase/auth';
+import { getFirestore, Firestore, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, Analytics } from 'firebase/analytics';
+import { UserRole } from '@/lib/types';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,21 +15,63 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 let analytics: Analytics | null = null;
 
-if (typeof window !== 'undefined') {
+const hasValidConfig = 
+  firebaseConfig.apiKey && 
+  firebaseConfig.projectId &&
+  firebaseConfig.apiKey !== 'your-api-key';
+
+if (typeof window !== 'undefined' && hasValidConfig) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
   
-  // Analyticsはブラウザ環境でのみ初期化
-  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) {
+  if (process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) {
     analytics = getAnalytics(app);
+  }
+}
+
+/**
+ * セカンダリFirebaseアプリでユーザーを作成する。
+ * メインアプリの認証状態（管理者のログイン）に影響しない。
+ */
+export async function createUserWithoutSignIn(
+  email: string,
+  password: string,
+  displayName: string,
+  role: UserRole,
+) {
+  if (!db) throw new Error('Firestore is not initialized');
+
+  const secondaryApp = initializeApp(firebaseConfig, 'user-creation');
+  const secondaryAuth = getAuth(secondaryApp);
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    const newUser = userCredential.user;
+
+    await updateProfile(newUser, { displayName });
+
+    await setDoc(doc(db, 'users', newUser.uid), {
+      id: newUser.uid,
+      role,
+      displayName,
+      email,
+      photoURL: null,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+
+    await firebaseSignOut(secondaryAuth);
+    return newUser.uid;
+  } finally {
+    await deleteApp(secondaryApp);
   }
 }
 
