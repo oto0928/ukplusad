@@ -28,7 +28,7 @@
 ## Firebase使用時の注意
 - Firestoreセキュリティルールは必ず設定
 - Admin SDKの秘密鍵は絶対にクライアント側に公開しない
-- リアルタイムリスナーは必ずクリーンアップ（useEffectのreturn）
+- リアルタイムリスナーは必ずクリーンアップ（useEffectのreturn
 - Server Actionsで認証チェックを必ず実装
 
 ## Vercelデプロイ時の注意
