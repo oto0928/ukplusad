@@ -8,14 +8,18 @@ import { PrivateSlot, PrivateBooking, AppUser } from '@/lib/types';
 import { collection, query, where, getDocs, Timestamp, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { X, ChevronLeft, ChevronRight, Clock, User, Video, FileText, Trash2, XCircle, RotateCcw, Lock, Unlock } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Clock, User, Video, FileText, Trash2, XCircle, RotateCcw, Lock, Unlock, Calendar, CalendarDays } from 'lucide-react';
 
 const HOUR_HEIGHT = 80;
 const START_HOUR = 9;
 const END_HOUR = 22;
 
+type ViewMode = 'week' | 'month';
+
 export default function CalendarPage() {
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [slots, setSlots] = useState<PrivateSlot[]>([]);
   const [bookings, setBookings] = useState<PrivateBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,8 +61,12 @@ export default function CalendarPage() {
   };
 
   useEffect(() => {
-    loadWeekData();
-  }, [currentWeek, selectedTeacher]);
+    if (viewMode === 'week') {
+      loadWeekData();
+    } else {
+      loadMonthData();
+    }
+  }, [currentWeek, currentMonth, selectedTeacher, viewMode]);
 
   const loadWeekData = async () => {
     setLoading(true);
@@ -95,6 +103,40 @@ export default function CalendarPage() {
     }
   };
 
+  const loadMonthData = async () => {
+    setLoading(true);
+    try {
+      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      const slotsQuery = query(
+        collection(db, 'privateSlots'),
+        where('startAt', '>=', Timestamp.fromDate(startOfMonth)),
+        where('startAt', '<=', Timestamp.fromDate(endOfMonth))
+      );
+      const slotsSnapshot = await getDocs(slotsQuery);
+      const slotsData = slotsSnapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+      })) as PrivateSlot[];
+
+      const filteredSlots = selectedTeacher === 'all'
+        ? slotsData
+        : slotsData.filter(slot => slot.teacherId === selectedTeacher);
+      setSlots(filteredSlots);
+
+      const bookingsSnapshot = await getDocs(collection(db, 'privateBookings'));
+      setBookings(bookingsSnapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+      })) as PrivateBooking[]);
+    } catch (error) {
+      console.error('Error loading month data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const goToPreviousWeek = () => {
     const newWeek = new Date(currentWeek);
     newWeek.setDate(newWeek.getDate() - 7);
@@ -109,6 +151,42 @@ export default function CalendarPage() {
 
   const goToToday = () => {
     setCurrentWeek(new Date());
+    setCurrentMonth(new Date());
+  };
+
+  const goToPreviousMonth = () => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(newMonth.getMonth() - 1);
+    setCurrentMonth(newMonth);
+  };
+
+  const goToNextMonth = () => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(newMonth.getMonth() + 1);
+    setCurrentMonth(newMonth);
+  };
+
+  const getMonthDays = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDay = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+    
+    const days: (Date | null)[] = [];
+    
+    // 前月の日付で埋める
+    for (let i = 0; i < startDay; i++) {
+      days.push(null);
+    }
+    
+    // 当月の日付
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    
+    return days;
   };
 
   const getSlotsForDate = (date: Date) => {
@@ -164,10 +242,36 @@ export default function CalendarPage() {
             </button>
           </div>
 
+          {/* 表示切り替えボタン */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewMode('week')}
+              className={`px-4 py-2 text-sm font-medium rounded-[6px] transition-colors min-h-[44px] flex items-center gap-2 ${
+                viewMode === 'week'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" />
+              週表示
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-4 py-2 text-sm font-medium rounded-[6px] transition-colors min-h-[44px] flex items-center gap-2 ${
+                viewMode === 'month'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              月表示
+            </button>
+          </div>
+
           <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex items-center space-x-4">
               <button
-                onClick={goToPreviousWeek}
+                onClick={viewMode === 'week' ? goToPreviousWeek : goToPreviousMonth}
                 className="p-2 hover:bg-gray-100 rounded-md transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -176,16 +280,19 @@ export default function CalendarPage() {
                 onClick={goToToday}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
-                今週
+                {viewMode === 'week' ? '今週' : '今月'}
               </button>
               <button
-                onClick={goToNextWeek}
+                onClick={viewMode === 'week' ? goToNextWeek : goToNextMonth}
                 className="p-2 hover:bg-gray-100 rounded-md transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
               <span className="text-lg font-semibold text-gray-900">
-                {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
+                {viewMode === 'week' 
+                  ? `${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}`
+                  : `${currentMonth.getFullYear()}年${currentMonth.getMonth() + 1}月`
+                }
               </span>
             </div>
 
@@ -205,6 +312,16 @@ export default function CalendarPage() {
               <div className="flex items-center justify-center h-96">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               </div>
+            ) : viewMode === 'month' ? (
+              <MonthView
+                monthDays={getMonthDays()}
+                slots={slots}
+                bookings={bookings}
+                userMap={userMap}
+                getSlotsForDate={getSlotsForDate}
+                getBookingForSlot={getBookingForSlot}
+                onSlotClick={setSelectedSlot}
+              />
             ) : (
               <div className="overflow-auto max-h-[calc(100vh-280px)]">
                 <div className="grid grid-cols-[64px_repeat(7,1fr)] border-b border-gray-200 sticky top-0 bg-white z-10">
@@ -377,21 +494,19 @@ function AddBookingModal({ teachers, onClose, onSuccess }: AddBookingModalProps)
   const [teacherId, setTeacherId] = useState('');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
-  const [startTime, setStartTime] = useState('10:00');
-  const [duration, setDuration] = useState(60);
+  const [startHour, setStartHour] = useState(10);
+  const [startMinute, setStartMinute] = useState(0);
+  const [durationHour, setDurationHour] = useState(1);
+  const [durationMinute, setDurationMinute] = useState(0);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const timeOptions = Array.from({ length: 52 }, (_, i) => {
-    const hour = Math.floor(i / 4) + 9;
-    const min = (i % 4) * 15;
-    return `${hour}:${min.toString().padStart(2, '0')}`;
-  }).filter(t => {
-    const h = parseInt(t.split(':')[0]);
-    return h >= 9 && h <= 21;
-  });
+  const hourOptions = Array.from({ length: 13 }, (_, i) => i + 9);
+  const minuteOptions = Array.from({ length: 60 }, (_, i) => i);
+  const durationHourOptions = Array.from({ length: 13 }, (_, i) => i);
+  const durationMinuteOptions = Array.from({ length: 60 }, (_, i) => i);
 
-  const durationOptions = Array.from({ length: 17 }, (_, i) => (i + 1) * 15).filter(d => d <= 240);
+  const totalDuration = durationHour * 60 + durationMinute;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -405,16 +520,19 @@ function AddBookingModal({ teachers, onClose, onSuccess }: AddBookingModalProps)
       setError('教師と日付を選択してください。');
       return;
     }
+    if (totalDuration <= 0) {
+      setError('空き枠の時間を1分以上に設定してください。');
+      return;
+    }
 
     setSubmitting(true);
 
     try {
-      const [hours, minutes] = startTime.split(':').map(Number);
       const [year, month, dayNum] = date.split('-').map(Number);
-      const startAt = new Date(year, month - 1, dayNum, hours, minutes, 0, 0);
+      const startAt = new Date(year, month - 1, dayNum, startHour, startMinute, 0, 0);
 
       const endAt = new Date(startAt);
-      endAt.setMinutes(endAt.getMinutes() + duration);
+      endAt.setMinutes(endAt.getMinutes() + totalDuration);
 
       const weekDay = startAt.getDay();
       const diff = startAt.getDate() - weekDay + (weekDay === 0 ? -6 : 1);
@@ -511,37 +629,63 @@ function AddBookingModal({ teachers, onClose, onSuccess }: AddBookingModalProps)
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="booking-time" className="block text-sm font-medium text-gray-700">
-                開始時間
-              </label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              開始時間
+            </label>
+            <div className="mt-1 flex items-center gap-2">
               <select
-                id="booking-time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]"
+                value={startHour}
+                onChange={(e) => setStartHour(Number(e.target.value))}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]"
               >
-                {timeOptions.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                {hourOptions.map((h) => (
+                  <option key={h} value={h}>{h}</option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label htmlFor="booking-duration" className="block text-sm font-medium text-gray-700">
-                時間（分）
-              </label>
+              <span className="text-gray-700 font-medium flex-shrink-0">時</span>
               <select
-                id="booking-duration"
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]"
+                value={startMinute}
+                onChange={(e) => setStartMinute(Number(e.target.value))}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]"
               >
-                {durationOptions.map((d) => (
-                  <option key={d} value={d}>{d}分</option>
+                {minuteOptions.map((m) => (
+                  <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
                 ))}
               </select>
+              <span className="text-gray-700 font-medium flex-shrink-0">分</span>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              空き枠の長さ
+            </label>
+            <div className="mt-1 flex items-center gap-2">
+              <select
+                value={durationHour}
+                onChange={(e) => setDurationHour(Number(e.target.value))}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]"
+              >
+                {durationHourOptions.map((h) => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+              <span className="text-gray-700 font-medium flex-shrink-0">時間</span>
+              <select
+                value={durationMinute}
+                onChange={(e) => setDurationMinute(Number(e.target.value))}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]"
+              >
+                {durationMinuteOptions.map((m) => (
+                  <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                ))}
+              </select>
+              <span className="text-gray-700 font-medium flex-shrink-0">分</span>
+            </div>
+            {totalDuration > 0 && (
+              <p className="mt-1 text-xs text-gray-500">合計: {totalDuration}分</p>
+            )}
           </div>
 
           {error && (
@@ -876,6 +1020,329 @@ function SlotDetailModal({ slot, booking, userMap, onClose, onDelete, onRefresh 
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================
+// 月表示コンポーネント
+// ============================
+
+interface MonthViewProps {
+  monthDays: (Date | null)[];
+  slots: PrivateSlot[];
+  bookings: PrivateBooking[];
+  userMap: Record<string, AppUser>;
+  getSlotsForDate: (date: Date) => PrivateSlot[];
+  getBookingForSlot: (slotId: string) => PrivateBooking | undefined;
+  onSlotClick: (slot: PrivateSlot) => void;
+}
+
+function MonthView({ monthDays, slots, bookings, userMap, getSlotsForDate, getBookingForSlot, onSlotClick }: MonthViewProps) {
+  const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+  const today = formatDate(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  const selectedDaySlots = selectedDate ? getSlotsForDate(selectedDate) : [];
+
+  return (
+    <div className="p-4">
+      {/* 曜日ヘッダー */}
+      <div className="grid grid-cols-7 gap-2 mb-2">
+        {weekDays.map((day, i) => (
+          <div
+            key={i}
+            className={`text-center text-sm font-semibold py-2 ${
+              i === 0 ? 'text-red-600' : i === 6 ? 'text-blue-600' : 'text-gray-700'
+            }`}
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* カレンダーグリッド */}
+      <div className="grid grid-cols-7 gap-2">
+        {monthDays.map((date, index) => {
+          if (!date) {
+            return <div key={`empty-${index}`} className="aspect-square bg-gray-50 rounded border border-gray-100" />;
+          }
+
+          const dateStr = formatDate(date);
+          const isToday = dateStr === today;
+          const daySlots = getSlotsForDate(date);
+          const dayOfWeek = date.getDay();
+
+          const bookedCount = daySlots.filter(slot => {
+            const booking = getBookingForSlot(slot.id);
+            return booking && !['cancelled_consumed', 'rescheduled'].includes(booking.status);
+          }).length;
+          const openCount = daySlots.filter(slot => {
+            const booking = getBookingForSlot(slot.id);
+            return slot.status === 'open' && !booking;
+          }).length;
+          const closedCount = daySlots.filter(slot => slot.status === 'closed').length;
+          const totalCount = daySlots.length;
+
+          return (
+            <button
+              key={dateStr}
+              onClick={() => setSelectedDate(date)}
+              className={`aspect-square border rounded-[6px] p-2 flex flex-col text-left cursor-pointer ${
+                isToday
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 bg-white hover:bg-gray-50'
+              } transition-colors`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span
+                  className={`text-sm font-semibold ${
+                    isToday
+                      ? 'text-blue-600'
+                      : dayOfWeek === 0
+                      ? 'text-red-600'
+                      : dayOfWeek === 6
+                      ? 'text-blue-600'
+                      : 'text-gray-900'
+                  }`}
+                >
+                  {date.getDate()}
+                </span>
+                {totalCount > 0 && (
+                  <span className="text-xs text-gray-400">{totalCount}</span>
+                )}
+              </div>
+
+              <div className="flex-1 flex flex-col gap-0.5 text-xs overflow-hidden">
+                {daySlots
+                  .sort((a, b) => a.startAt.toDate().getTime() - b.startAt.toDate().getTime())
+                  .slice(0, 4)
+                  .map(slot => {
+                    const start = slot.startAt.toDate();
+                    const end = slot.endAt.toDate();
+                    const booking = getBookingForSlot(slot.id);
+                    const teacher = userMap[slot.teacherId];
+                    const isCancelled = booking && (booking.status === 'cancelled_consumed' || booking.status === 'rescheduled');
+                    const teacherName = teacher?.displayName?.substring(0, 4) || '';
+
+                    const dotColor = isCancelled
+                      ? 'bg-orange-400'
+                      : booking
+                      ? 'bg-blue-500'
+                      : slot.status === 'open'
+                      ? 'bg-green-500'
+                      : 'bg-gray-400';
+
+                    return (
+                      <div key={slot.id} className="flex items-center gap-1 truncate leading-tight">
+                        <div className={`w-1.5 h-1.5 rounded-full ${dotColor} flex-shrink-0`} />
+                        <span className="truncate text-gray-700">
+                          {formatTime(start)}-{formatTime(end)}
+                          {teacherName && <span className="text-gray-500 ml-0.5">{teacherName}</span>}
+                        </span>
+                      </div>
+                    );
+                  })}
+                {daySlots.length > 4 && (
+                  <span className="text-gray-400 text-center">+{daySlots.length - 4}件</span>
+                )}
+                {daySlots.length === 0 && (
+                  <span className="text-gray-300 text-center mt-auto">-</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 凡例 */}
+      <div className="mt-4 flex items-center gap-4 text-xs text-gray-600">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-blue-500" />
+          <span>予約済み</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-green-500" />
+          <span>空き</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-gray-400" />
+          <span>クローズ</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-orange-500" />
+          <span>キャンセル済</span>
+        </div>
+      </div>
+
+      {/* 日別予定一覧モーダル */}
+      {selectedDate && (
+        <DayDetailModal
+          date={selectedDate}
+          daySlots={selectedDaySlots}
+          userMap={userMap}
+          getBookingForSlot={getBookingForSlot}
+          onSlotClick={(slot) => { setSelectedDate(null); onSlotClick(slot); }}
+          onClose={() => setSelectedDate(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================
+// 日別予定一覧モーダル（管理者用）
+// ============================
+
+interface DayDetailModalProps {
+  date: Date;
+  daySlots: PrivateSlot[];
+  userMap: Record<string, AppUser>;
+  getBookingForSlot: (slotId: string) => PrivateBooking | undefined;
+  onSlotClick: (slot: PrivateSlot) => void;
+  onClose: () => void;
+}
+
+function DayDetailModal({ date, daySlots, userMap, getBookingForSlot, onSlotClick, onClose }: DayDetailModalProps) {
+  const dayOfWeek = getDayName(date);
+  const sortedSlots = [...daySlots].sort((a, b) =>
+    a.startAt.toDate().getTime() - b.startAt.toDate().getTime()
+  );
+
+  const bookedCount = sortedSlots.filter(s => {
+    const b = getBookingForSlot(s.id);
+    return b && !['cancelled_consumed', 'rescheduled'].includes(b.status);
+  }).length;
+  const openCount = sortedSlots.filter(s => {
+    const b = getBookingForSlot(s.id);
+    return s.status === 'open' && !b;
+  }).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="bg-white border border-gray-200 w-full max-w-lg mx-4 max-h-[80vh] flex flex-col rounded-[6px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ヘッダー */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">
+              {date.getMonth() + 1}月{date.getDate()}日（{dayOfWeek}）
+            </h3>
+            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                予約 {bookedCount}件
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                空き {openCount}件
+              </span>
+              <span>合計 {sortedSlots.length}件</span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* スロット一覧 */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {sortedSlots.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Clock className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              <p className="text-sm">この日の予定はありません</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sortedSlots.map(slot => {
+                const start = slot.startAt.toDate();
+                const end = slot.endAt.toDate();
+                const booking = getBookingForSlot(slot.id);
+                const teacher = userMap[slot.teacherId];
+                const student = booking ? userMap[booking.studentId] : null;
+                const isCancelled = booking && (booking.status === 'cancelled_consumed' || booking.status === 'rescheduled');
+                const durationMin = Math.round((end.getTime() - start.getTime()) / 60000);
+
+                let statusLabel: string;
+                let statusColor: string;
+                let borderColor: string;
+
+                if (isCancelled) {
+                  statusLabel = booking.status === 'rescheduled' ? '振替済' : 'キャンセル';
+                  statusColor = 'text-orange-700 bg-orange-50';
+                  borderColor = 'border-orange-200';
+                } else if (booking) {
+                  statusLabel = booking.status === 'completed' ? '完了' : booking.status === 'no_show_consumed' ? '欠席' : '予約済み';
+                  statusColor = booking.status === 'completed' ? 'text-gray-600 bg-gray-100' : 'text-blue-700 bg-blue-50';
+                  borderColor = booking.status === 'completed' ? 'border-gray-200' : 'border-blue-200';
+                } else if (slot.status === 'open') {
+                  statusLabel = '空き';
+                  statusColor = 'text-green-700 bg-green-50';
+                  borderColor = 'border-green-200';
+                } else {
+                  statusLabel = 'クローズ';
+                  statusColor = 'text-gray-600 bg-gray-100';
+                  borderColor = 'border-gray-200';
+                }
+
+                return (
+                  <button
+                    key={slot.id}
+                    onClick={() => onSlotClick(slot)}
+                    className={`w-full text-left border ${borderColor} rounded-[6px] p-3 hover:bg-gray-50 transition-colors`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-bold text-gray-900">
+                            {formatTime(start)} - {formatTime(end)}
+                          </span>
+                          <span className="text-xs text-gray-400">{durationMin}分</span>
+                        </div>
+                        {slot.title && (
+                          <p className="text-xs text-gray-600 mb-1">{slot.title}</p>
+                        )}
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          {teacher && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {teacher.displayName || teacher.email}
+                            </span>
+                          )}
+                          {student && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3 text-blue-500" />
+                              {student.displayName || student.email}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-1 rounded flex-shrink-0 ${statusColor}`}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* フッター */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="w-full py-2 text-sm font-medium rounded-[6px] text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors min-h-[44px]"
+          >
+            閉じる
+          </button>
         </div>
       </div>
     </div>

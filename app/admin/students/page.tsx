@@ -8,8 +8,9 @@ import { collection, getDocs, query, where, doc, setDoc, Timestamp, updateDoc, d
 import { db, createUserWithoutSignIn } from '@/lib/firebase/client';
 import { deleteAuthUser } from '@/lib/auth';
 import { formatDate, formatDateJa, toDate } from '@/lib/utils';
-import { X, User, Mail, Ticket, CalendarDays, Clock, Edit2, Check, UserCheck, Users, Trash2, AlertTriangle } from 'lucide-react';
+import { X, User, Mail, Ticket, CalendarDays, Clock, Edit2, Check, UserCheck, Users, Trash2, AlertTriangle, Pause, Play } from 'lucide-react';
 import { calculateRescheduleAllowed } from '@/lib/types';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<AppUser[]>([]);
@@ -255,6 +256,7 @@ function StudentDetailModal({ student, enrollments, teachers, teacherMap, onClos
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [processing, setProcessing] = useState(false);
 
   const activeEnrollments = enrollments.filter(e => e.status === 'active');
   const expiredEnrollments = enrollments.filter(e => e.status !== 'active');
@@ -317,6 +319,59 @@ function StudentDetailModal({ student, enrollments, teachers, teacherMap, onClos
       alert('更新に失敗しました');
     } finally {
       setSavingTeachers(false);
+    }
+  };
+
+  const handleDeactivateAllEnrollments = async () => {
+    if (!db) return;
+    if (activeEnrollments.length === 0) {
+      alert('アクティブな受講登録がありません');
+      return;
+    }
+    if (!confirm(`${student.displayName || student.email}のすべてのアクティブな受講登録を停止しますか？\n\n生徒は授業を予約できなくなります。後から再開することも可能です。`)) return;
+    
+    setProcessing(true);
+    try {
+      for (const enrollment of activeEnrollments) {
+        await updateDoc(doc(db, 'enrollments', enrollment.id), {
+          status: 'inactive',
+          updatedAt: Timestamp.now(),
+        });
+      }
+      alert('すべての受講登録を停止しました');
+      onUpdate();
+    } catch (error) {
+      console.error('Error deactivating enrollments:', error);
+      alert('停止に失敗しました');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleActivateAllEnrollments = async () => {
+    if (!db) return;
+    const inactiveEnrollments = enrollments.filter(e => e.status === 'inactive');
+    if (inactiveEnrollments.length === 0) {
+      alert('停止中の受講登録がありません');
+      return;
+    }
+    if (!confirm(`${student.displayName || student.email}の停止中の受講登録を再開しますか？\n\n生徒は再び授業を予約できるようになります。`)) return;
+    
+    setProcessing(true);
+    try {
+      for (const enrollment of inactiveEnrollments) {
+        await updateDoc(doc(db, 'enrollments', enrollment.id), {
+          status: 'active',
+          updatedAt: Timestamp.now(),
+        });
+      }
+      alert('すべての受講登録を再開しました');
+      onUpdate();
+    } catch (error) {
+      console.error('Error activating enrollments:', error);
+      alert('再開に失敗しました');
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -509,6 +564,44 @@ function StudentDetailModal({ student, enrollments, teachers, teacherMap, onClos
               ))}
             </div>
           )}
+
+          {/* アクティブ停止・再開 */}
+          <div className="space-y-3 pt-4 border-t border-gray-200">
+            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">受講状態の管理</h4>
+            <div className="space-y-2">
+              {activeEnrollments.length > 0 && (
+                <button
+                  onClick={handleDeactivateAllEnrollments}
+                  disabled={processing}
+                  className="w-full py-2 text-sm text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100 rounded-[6px] min-h-[44px] flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  <Pause className="w-4 h-4" />
+                  {processing ? '処理中...' : 'すべての受講を停止'}
+                </button>
+              )}
+              {enrollments.filter(e => e.status === 'inactive').length > 0 && (
+                <button
+                  onClick={handleActivateAllEnrollments}
+                  disabled={processing}
+                  className="w-full py-2 text-sm text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 rounded-[6px] min-h-[44px] flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  <Play className="w-4 h-4" />
+                  {processing ? '処理中...' : '停止中の受講を再開'}
+                </button>
+              )}
+              {activeEnrollments.length === 0 && enrollments.filter(e => e.status === 'inactive').length === 0 && (
+                <div className="border border-gray-200 rounded-none p-4 text-center">
+                  <p className="text-sm text-gray-500">管理可能な受講登録がありません</p>
+                </div>
+              )}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-[6px] p-3">
+              <p className="text-xs text-blue-800">
+                <strong>停止:</strong> 生徒は授業を予約できなくなります（アカウントは残ります）<br />
+                <strong>再開:</strong> 停止中の受講登録を再びアクティブにします
+              </p>
+            </div>
+          </div>
 
           {/* 生徒削除 */}
           <div className="space-y-3 pt-4 border-t border-gray-200">
@@ -716,6 +809,7 @@ interface AddStudentModalProps {
 }
 
 function AddStudentModal({ onClose, onSuccess }: AddStudentModalProps) {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -731,7 +825,7 @@ function AddStudentModal({ onClose, onSuccess }: AddStudentModalProps) {
     }
     setSubmitting(true);
     try {
-      await createUserWithoutSignIn(email, password, name, 'student');
+      await createUserWithoutSignIn(email, password, name, 'student', user?.uid);
       onSuccess();
     } catch (err: unknown) {
       console.error('Error adding student:', err);
@@ -776,6 +870,18 @@ function AddStudentModal({ onClose, onSuccess }: AddStudentModalProps) {
             <label htmlFor="student-password" className="block text-sm font-medium text-gray-700">パスワード（6文字以上）</label>
             <input id="student-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[44px]" />
           </div>
+          
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md text-sm">
+            <p className="font-medium mb-1">自動設定される内容：</p>
+            <ul className="text-xs space-y-1 ml-4 list-disc">
+              <li>登録回数: 8回</li>
+              <li>有効期限: 3ヶ月後</li>
+              <li>ステータス: アクティブ</li>
+              <li>振替可能回数: 2回</li>
+            </ul>
+            <p className="text-xs mt-2 text-blue-600">※ 後から編集可能です</p>
+          </div>
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">{error}</div>
           )}

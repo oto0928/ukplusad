@@ -49,6 +49,7 @@ export async function createUserWithoutSignIn(
   password: string,
   displayName: string,
   role: UserRole,
+  createdBy?: string,
 ) {
   if (!db) throw new Error('Firestore is not initialized');
 
@@ -70,6 +71,31 @@ export async function createUserWithoutSignIn(
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
+
+    // 生徒の場合は自動的に初期受講登録を作成
+    if (role === 'student' && createdBy) {
+      const enrollmentRef = doc(db, 'enrollments', `${newUser.uid}_initial`);
+      const now = Timestamp.now();
+      const validUntil = new Date();
+      validUntil.setMonth(validUntil.getMonth() + 3); // 3ヶ月後
+
+      await setDoc(enrollmentRef, {
+        id: enrollmentRef.id,
+        studentId: newUser.uid,
+        type: 'ticket_bundle',
+        registeredCount: 8,
+        usedCount: 0,
+        remainingCount: 8,
+        validFrom: null,
+        validUntil: Timestamp.fromDate(validUntil),
+        rescheduleAllowedCount: 2, // 8回 ÷ 4 = 2回
+        rescheduleUsedCount: 0,
+        status: 'active',
+        createdBy: createdBy,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     await firebaseSignOut(secondaryAuth);
     return newUser.uid;

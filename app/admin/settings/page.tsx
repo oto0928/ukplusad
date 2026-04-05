@@ -141,7 +141,7 @@ export default function SettingsPage() {
                 ))}
               </select>
             </Field>
-            <Field label="レッスン間の休憩バッファ（分）">
+            <Field label="授業準備時間・休憩バッファ（分）">
               <input
                 type="number"
                 min={0}
@@ -150,6 +150,9 @@ export default function SettingsPage() {
                 onChange={e => setSettings(prev => ({ ...prev, breakBufferMinutesDefault: Number(e.target.value) }))}
                 className="input-field"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                生徒が予約した際、授業後に自動的にこの時間分の空白が確保されます。残りの空き枠は空白の後に再設定されます。
+              </p>
             </Field>
             <Field label="週の開始曜日">
               <select
