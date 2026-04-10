@@ -254,64 +254,37 @@ export default function TestFirebasePage() {
 
 ## 📝 ステップ9: Firestoreセキュリティルールの設定（重要）
 
-開発が進んだら、セキュリティルールを設定します。
+本プロジェクトでは **`firestore.rules`** にアプリ用のルールをまとめています。  
+古いサンプルルールのままだと **`enrollments` や `privateSlots` が未定義で拒否** され、生徒追加や `users` の更新で **`permission-denied`** になります。
 
-### 9-1. Firebase Console > Firestore Database > ルール
+### 9-1. ルールの内容
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // 管理者・教師のみアクセス可能
-    function isAdmin() {
-      return request.auth != null && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    function isTeacher() {
-      return request.auth != null && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'teacher'];
-    }
-    
-    // ユーザー情報（管理者・教師のみ）
-    match /users/{userId} {
-      allow read, write: if isTeacher();
-    }
-    
-    // 生徒情報
-    match /students/{studentId} {
-      allow read: if isTeacher();
-      allow write: if isAdmin();
-    }
-    
-    // 授業セッション
-    match /sessions/{sessionId} {
-      allow read, write: if isTeacher();
-    }
-    
-    // 予約情報
-    match /bookings/{bookingId} {
-      allow read, write: if isTeacher();
-    }
-    
-    // お知らせ
-    match /announcements/{announcementId} {
-      allow read: if isTeacher();
-      allow write: if isAdmin();
-    }
-    
-    // 出席記録
-    match /attendance/{attendanceId} {
-      allow read, write: if isTeacher();
-    }
-  }
-}
+リポジトリ直下の **`firestore.rules`** を開き、内容を確認してください（`users` / `enrollments` / `privateSlots` / `privateBookings` など）。
+
+### 9-2. 反映方法（どちらか一方）
+
+**A. Firebase Console（手軽）**
+
+1. [Firebase Console](https://console.firebase.google.com/) → 対象プロジェクト → **Firestore Database** → **ルール**
+2. エディタの内容をすべて削除し、ローカルの **`firestore.rules` の全文** をコピーして貼り付け
+3. **公開** をクリック
+
+**B. Firebase CLI**
+
+```bash
+# 初回のみ: npm i -g firebase-tools && firebase login
+firebase deploy --only firestore:rules
 ```
 
-### 9-2. ルールを公開
+（`firebase.json` がルールファイルを指しています。）
 
-**「公開」** ボタンをクリックして、ルールを適用します。
+### 9-3. `permission-denied` のときの確認
+
+1. **ログイン中の UID** に対応する **`users/{そのUID}` ドキュメント** が Firestore に存在するか
+2. そのドキュメントの **`role` フィールド** が **`admin`** か（管理者で生徒追加・教師割り当て保存が必要）
+3. ルール公開後、ブラウザを **再読み込み** してから再度操作する
+
+認証はできているが Firestore だけ失敗する場合は、ほぼ **ルール未設定・古いルール・`role` が `admin` でない** のいずれかです。
 
 ## 🚀 次のステップ
 

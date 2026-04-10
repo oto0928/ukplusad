@@ -97,6 +97,21 @@ export async function createUserWithoutSignIn(
       });
     }
 
+    // 教師の場合は teacherProfiles を同時に作成する。
+    // 教師管理の「追加」は users のみ作っていたため、編集保存をしないと
+    // teacherProfiles が無い教師が発生していた。
+    if (role === 'teacher') {
+      const now = Timestamp.now();
+      await setDoc(doc(db, 'teacherProfiles', newUser.uid), {
+        id: newUser.uid,
+        name: displayName,
+        bio: '',
+        specialties: [],
+        photoPath: null,
+        updatedAt: now,
+      });
+    }
+
     await firebaseSignOut(secondaryAuth);
     return newUser.uid;
   } finally {
