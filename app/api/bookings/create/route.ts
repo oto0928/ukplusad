@@ -114,6 +114,9 @@ export async function POST(req: NextRequest) {
           source: slotData.source,
           note: null,
           weekKey: slotData.weekKey,
+          ...(slotData.weekCellBg && slotData.weekCellText
+            ? { weekCellBg: slotData.weekCellBg, weekCellText: slotData.weekCellText }
+            : {}),
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         });
@@ -135,6 +138,9 @@ export async function POST(req: NextRequest) {
           source: slotData.source,
           note: null,
           weekKey: slotData.weekKey,
+          ...(slotData.weekCellBg && slotData.weekCellText
+            ? { weekCellBg: slotData.weekCellBg, weekCellText: slotData.weekCellText }
+            : {}),
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         });

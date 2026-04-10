@@ -80,6 +80,19 @@ export function getWeekDates(date: Date): Date[] {
 }
 
 /**
+ * 週表示・Firestore範囲クエリ用: 月曜0:00 〜 日曜23:59:59.999（ローカル）
+ * getWeekDates() 単体では時刻が元の日付のまま残るため、朝の枠がクエリから漏れるのを防ぐ
+ */
+export function getWeekRangeBounds(anchorDate: Date): { start: Date; end: Date } {
+  const wd = getWeekDates(anchorDate);
+  const start = new Date(wd[0]);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(wd[6]);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+/**
  * 曜日名を取得
  */
 export function getDayName(date: Date): string {

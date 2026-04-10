@@ -35,6 +35,13 @@ export interface TeacherProfile {
   specialties: string[];
   photoPath?: string | null;
   updatedAt: Timestamp;
+  /** マイスケジュール週表示の枠色（#RRGGBB）。未設定時はアプリのデフォルト色を使用 */
+  scheduleWeekOpenBg?: string;
+  scheduleWeekOpenText?: string;
+  scheduleWeekBookedBg?: string;
+  scheduleWeekBookedText?: string;
+  scheduleWeekClosedBg?: string;
+  scheduleWeekClosedText?: string;
 }
 
 // ===========================
@@ -106,6 +113,9 @@ export interface PrivateSlot {
   status: SlotStatus;
   source: SlotSource;
   note?: string | null;
+  /** 週表示グリッドのコマ色（未設定時は教師プロフィール／管理画面のステータス別色） */
+  weekCellBg?: string | null;
+  weekCellText?: string | null;
   weekKey: string; // YYYY-MM-DD (monday start)
   createdAt: Timestamp;
   updatedAt: Timestamp;

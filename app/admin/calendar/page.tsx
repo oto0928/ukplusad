@@ -3,9 +3,17 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ProtectedRoute } from '@/lib/components/ProtectedRoute';
 import { AdminLayout } from '@/lib/components/AdminLayout';
-import { getWeekDates, formatDate, getDayName, formatTime, formatDuration, calculateOverlapLayout } from '@/lib/utils';
+import { getWeekDates, getWeekRangeBounds, formatDate, getDayName, formatTime, formatDuration, calculateOverlapLayout } from '@/lib/utils';
 import { PrivateSlot, PrivateBooking, AppUser } from '@/lib/types';
-import { collection, query, where, getDocs, Timestamp, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, doc, setDoc, deleteDoc, updateDoc, deleteField } from 'firebase/firestore';
+import {
+  ADMIN_CALENDAR_WEEK_THEME,
+  getSlotWeekColorPresetById,
+  matchSlotWeekColorPresetId,
+  monthSlotDotBackground,
+  slotWeekCellComputedStyle,
+} from '@/lib/scheduleSlotStyle';
+import { SlotWeekColorPresetStrip } from '@/lib/components/SlotWeekColorPresetStrip';
 import { db } from '@/lib/firebase/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { X, ChevronLeft, ChevronRight, Clock, User, Video, FileText, Trash2, XCircle, RotateCcw, Lock, Unlock, Calendar, CalendarDays } from 'lucide-react';
@@ -71,9 +79,7 @@ export default function CalendarPage() {
   const loadWeekData = async () => {
     setLoading(true);
     try {
-      const startOfWeek = weekDates[0];
-      const endOfWeek = new Date(weekDates[6]);
-      endOfWeek.setHours(23, 59, 59, 999);
+      const { start: startOfWeek, end: endOfWeek } = getWeekRangeBounds(currentWeek);
 
       const slotsQuery = query(
         collection(db, 'privateSlots'),
@@ -388,25 +394,28 @@ export default function CalendarPage() {
                           const teacher = userMap[slot.teacherId];
                           const student = booking ? userMap[booking.studentId] : null;
                           const isCancelled = booking && (booking.status === 'cancelled_consumed' || booking.status === 'rescheduled');
-
-                          const slotColor = isCancelled
-                            ? 'bg-orange-100 border-orange-300 text-orange-800'
-                            : slot.status === 'open'
-                            ? 'bg-green-100 border-green-300 text-green-800'
-                            : slot.status === 'booked'
-                            ? 'bg-blue-100 border-blue-300 text-blue-800'
-                            : 'bg-gray-100 border-gray-300 text-gray-600';
+                          const effectiveStatus: 'open' | 'booked' | 'closed' =
+                            booking && !isCancelled
+                              ? 'booked'
+                              : slot.status === 'closed'
+                                ? 'closed'
+                                : 'open';
 
                           return (
                             <div
                               key={slot.id}
-                              className={`absolute rounded cursor-pointer overflow-hidden border transition-opacity hover:opacity-90 ${slotColor}`}
+                              className={`absolute rounded cursor-pointer overflow-hidden transition-opacity hover:opacity-90 ${
+                                isCancelled ? 'border border-orange-300 bg-orange-100 text-orange-800' : ''
+                              }`}
                               style={{
                                 top: `${top}px`,
                                 height: `${height}px`,
                                 left: `calc(${leftPct}% + 2px)`,
                                 width: `calc(${colWidthPct}% - 4px)`,
                                 zIndex: 5 + colIndex,
+                                ...(isCancelled
+                                  ? {}
+                                  : slotWeekCellComputedStyle(slot, effectiveStatus, ADMIN_CALENDAR_WEEK_THEME)),
                               }}
                               onClick={() => setSelectedSlot(slot)}
                             >
@@ -498,6 +507,7 @@ function AddBookingModal({ teachers, onClose, onSuccess }: AddBookingModalProps)
   const [startMinute, setStartMinute] = useState(0);
   const [durationHour, setDurationHour] = useState(1);
   const [durationMinute, setDurationMinute] = useState(0);
+  const [colorPresetId, setColorPresetId] = useState('default');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -540,6 +550,12 @@ function AddBookingModal({ teachers, onClose, onSuccess }: AddBookingModalProps)
       monday.setDate(diff);
       const weekKey = formatDate(monday);
 
+      const colorPreset = getSlotWeekColorPresetById(colorPresetId) ?? getSlotWeekColorPresetById('default')!;
+      const colorFields =
+        colorPreset.weekCellBg && colorPreset.weekCellText
+          ? { weekCellBg: colorPreset.weekCellBg, weekCellText: colorPreset.weekCellText }
+          : {};
+
       const slotRef = doc(collection(db, 'privateSlots'));
       const slotData = {
         id: slotRef.id,
@@ -553,6 +569,7 @@ function AddBookingModal({ teachers, onClose, onSuccess }: AddBookingModalProps)
         weekKey,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
+        ...colorFields,
       };
       await setDoc(slotRef, slotData);
 
@@ -688,6 +705,8 @@ function AddBookingModal({ teachers, onClose, onSuccess }: AddBookingModalProps)
             )}
           </div>
 
+          <SlotWeekColorPresetStrip value={colorPresetId} onChange={setColorPresetId} />
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
               {error}
@@ -729,12 +748,25 @@ function SlotDetailModal({ slot, booking, userMap, onClose, onDelete, onRefresh 
   const [processing, setProcessing] = useState(false);
   const [editingZoom, setEditingZoom] = useState(false);
   const [zoomURL, setZoomURL] = useState(booking?.zoomURL || '');
+  const [slotColorPresetId, setSlotColorPresetId] = useState('default');
+  const [slotColorCustomBg, setSlotColorCustomBg] = useState('#86efac');
+  const [slotColorCustomText, setSlotColorCustomText] = useState('#14532d');
+  const [slotColorSaving, setSlotColorSaving] = useState(false);
+  const [slotColorMessage, setSlotColorMessage] = useState('');
   const teacher = userMap[slot.teacherId];
   const student = booking ? userMap[booking.studentId] : null;
   const startDate = slot.startAt.toDate();
   const endDate = slot.endAt.toDate();
   const durationMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
   const isCancelled = booking && (booking.status === 'cancelled_consumed' || booking.status === 'rescheduled');
+  const canEditSlotColors = !booking && slot.status !== 'booked';
+
+  useEffect(() => {
+    setSlotColorPresetId(matchSlotWeekColorPresetId(slot));
+    setSlotColorCustomBg(slot.weekCellBg?.trim() || '#86efac');
+    setSlotColorCustomText(slot.weekCellText?.trim() || '#14532d');
+    setSlotColorMessage('');
+  }, [slot.id]);
 
   const slotStatusConfig: Record<string, { label: string; className: string }> = {
     open: { label: '空き', className: 'bg-green-100 text-green-800' },
@@ -811,6 +843,37 @@ function SlotDetailModal({ slot, booking, userMap, onClose, onDelete, onRefresh 
       alert('更新に失敗しました');
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleSaveSlotColors = async () => {
+    if (!db || !canEditSlotColors) return;
+    setSlotColorSaving(true);
+    setSlotColorMessage('');
+    try {
+      const preset = getSlotWeekColorPresetById(slotColorPresetId);
+      let colorUpdate: Record<string, unknown> = {
+        weekCellBg: deleteField(),
+        weekCellText: deleteField(),
+        updatedAt: Timestamp.now(),
+      };
+      if (slotColorPresetId === 'custom') {
+        const bg = slotColorCustomBg.trim();
+        const tx = slotColorCustomText.trim();
+        if (bg && tx) {
+          colorUpdate = { weekCellBg: bg, weekCellText: tx, updatedAt: Timestamp.now() };
+        }
+      } else if (preset?.weekCellBg && preset.weekCellText) {
+        colorUpdate = { weekCellBg: preset.weekCellBg, weekCellText: preset.weekCellText, updatedAt: Timestamp.now() };
+      }
+      await updateDoc(doc(db, 'privateSlots', slot.id), colorUpdate);
+      onRefresh();
+      setSlotColorMessage('色を保存しました');
+    } catch (error) {
+      console.error('Error saving slot colors:', error);
+      setSlotColorMessage('色の保存に失敗しました');
+    } finally {
+      setSlotColorSaving(false);
     }
   };
 
@@ -953,6 +1016,52 @@ function SlotDetailModal({ slot, booking, userMap, onClose, onDelete, onRefresh 
             <div className="border border-gray-200 rounded p-4">
               <div className="text-xs text-gray-500 mb-1">メモ</div>
               <div className="text-sm text-gray-700">{slot.note}</div>
+            </div>
+          )}
+
+          {canEditSlotColors && (
+            <div className="border border-gray-200 rounded p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-900">週表示のコマ色</p>
+              <SlotWeekColorPresetStrip
+                value={slotColorPresetId}
+                onChange={setSlotColorPresetId}
+                showCustomOption
+              />
+              {slotColorPresetId === 'custom' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">背景色</label>
+                    <input
+                      type="color"
+                      value={slotColorCustomBg}
+                      onChange={e => setSlotColorCustomBg(e.target.value)}
+                      className="h-11 w-full min-h-[44px] cursor-pointer border border-gray-300 rounded-[6px] bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">文字色</label>
+                    <input
+                      type="color"
+                      value={slotColorCustomText}
+                      onChange={e => setSlotColorCustomText(e.target.value)}
+                      className="h-11 w-full min-h-[44px] cursor-pointer border border-gray-300 rounded-[6px] bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+              {slotColorMessage && (
+                <p className={`text-sm ${slotColorMessage.includes('失敗') ? 'text-red-600' : 'text-gray-600'}`}>
+                  {slotColorMessage}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveSlotColors}
+                disabled={slotColorSaving}
+                className="w-full py-2 px-4 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-[6px] transition-colors min-h-[44px] disabled:opacity-50"
+              >
+                {slotColorSaving ? '保存中...' : 'コマの色を保存'}
+              </button>
             </div>
           )}
 
@@ -1126,18 +1235,16 @@ function MonthView({ monthDays, slots, bookings, userMap, getSlotsForDate, getBo
                     const teacher = userMap[slot.teacherId];
                     const isCancelled = booking && (booking.status === 'cancelled_consumed' || booking.status === 'rescheduled');
                     const teacherName = teacher?.displayName?.substring(0, 4) || '';
-
-                    const dotColor = isCancelled
-                      ? 'bg-orange-400'
-                      : booking
-                      ? 'bg-blue-500'
-                      : slot.status === 'open'
-                      ? 'bg-green-500'
-                      : 'bg-gray-400';
+                    const hasActiveBooking = !!booking && !isCancelled;
+                    const dotBg = monthSlotDotBackground(slot, {
+                      isCancelled: !!isCancelled,
+                      hasActiveBooking,
+                      isClosed: slot.status === 'closed',
+                    });
 
                     return (
                       <div key={slot.id} className="flex items-center gap-1 truncate leading-tight">
-                        <div className={`w-1.5 h-1.5 rounded-full ${dotColor} flex-shrink-0`} />
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: dotBg }} />
                         <span className="truncate text-gray-700">
                           {formatTime(start)}-{formatTime(end)}
                           {teacherName && <span className="text-gray-500 ml-0.5">{teacherName}</span>}
